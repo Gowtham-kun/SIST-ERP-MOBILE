@@ -20,9 +20,10 @@
 </head>
 <body class="bg-[#0f131c] text-[#dfe2ee] min-h-screen flex flex-col justify-between relative selection:bg-blue-600 selection:text-white overflow-x-hidden">
 
-  <!-- 120Hz Smooth Obsidian Ambient Backdrop -->
-  <div class="obsidian-ambient-bg">
-    <canvas id="threads-canvas" class="absolute inset-0 w-full h-full hidden md:block"></canvas>
+  <!-- WebThreads Animated Background Shader Canvas -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <canvas id="threads-canvas" class="absolute inset-0 w-full h-full"></canvas>
+    <div class="absolute inset-0 bg-[#0f131c]/30 pointer-events-none"></div>
   </div>
 
   <!-- Global Header Bar -->
