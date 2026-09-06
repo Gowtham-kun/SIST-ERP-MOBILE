@@ -1,12 +1,14 @@
 package com.sist.erp;
 
 import android.annotation.SuppressLint;
+import android.app.Activity;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Display;
 import android.view.View;
 import android.view.Window;
@@ -16,7 +18,6 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
-import androidx.appcompat.app.AppCompatActivity;
 
 import java.io.BufferedReader;
 import java.io.InputStream;
@@ -26,8 +27,9 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends Activity {
 
+    private static final String TAG = "SIST_ERP";
     private WebView webView;
 
     @SuppressLint({"SetJavaScriptEnabled"})
@@ -35,53 +37,66 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
-        // ── 120Hz Display Refresh Rate Configuration ─────────────────────────
-        configureHighRefreshRate();
+        try {
+            // ── System Bar Colors (Obsidian Dark #0f131c) ─────────────────────
+            Window window = getWindow();
+            window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+            window.setStatusBarColor(0xFF0F131C);
+            window.setNavigationBarColor(0xFF0F131C);
+        } catch (Throwable t) {
+            Log.w(TAG, "Window bar styling note: " + t.getMessage());
+        }
 
-        // ── System Bar Colors (Obsidian Dark) ────────────────────────────────
-        Window window = getWindow();
-        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
-        window.setStatusBarColor(0xFF0F131C);
-        window.setNavigationBarColor(0xFF0F131C);
+        try {
+            // ── 120Hz Display Refresh Rate Configuration ──────────────────────
+            configureHighRefreshRate();
+        } catch (Throwable t) {
+            Log.w(TAG, "Refresh rate configuration note: " + t.getMessage());
+        }
 
-        webView = new WebView(this);
-        setContentView(webView);
+        try {
+            webView = new WebView(this);
+            webView.setBackgroundColor(0xFF0F131C);
+            setContentView(webView);
 
-        // ── High Performance WebView Configuration ────────────────────────────
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
-        settings.setAllowFileAccessFromFileURLs(true);
-        settings.setAllowUniversalAccessFromFileURLs(true);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setRenderPriority(WebSettings.RenderPriority.HIGH);
-        settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+            // ── High Performance WebView Configuration ────────────────────────
+            WebSettings settings = webView.getSettings();
+            settings.setJavaScriptEnabled(true);
+            settings.setDomStorageEnabled(true);
+            settings.setDatabaseEnabled(true);
+            settings.setAllowFileAccess(true);
+            settings.setAllowContentAccess(true);
+            settings.setAllowFileAccessFromFileURLs(true);
+            settings.setAllowUniversalAccessFromFileURLs(true);
+            settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+            settings.setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
 
-        // Hardware Acceleration
-        webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
-        webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
+            // Hardware Acceleration
+            webView.setLayerType(View.LAYER_TYPE_HARDWARE, null);
+            webView.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
-        // Register Native JavaScript Bridge for standalone direct ERP requests
-        webView.addJavascriptInterface(new AndroidBridge(this), "AndroidBridge");
+            // Register Native JavaScript Bridge for standalone direct ERP requests
+            webView.addJavascriptInterface(new AndroidBridge(this), "AndroidBridge");
 
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, String url) {
-                if (url.startsWith("file:///android_asset/")) {
-                    return false;
+            webView.setWebViewClient(new WebViewClient() {
+                @Override
+                public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                    if (url.startsWith("file:///android_asset/")) {
+                        return false;
+                    }
+                    view.loadUrl(url);
+                    return true;
                 }
-                view.loadUrl(url);
-                return true;
-            }
-        });
+            });
 
-        webView.setWebChromeClient(new WebChromeClient());
+            webView.setWebChromeClient(new WebChromeClient());
 
-        // Load offline-first local asset
-        webView.loadUrl("file:///android_asset/index.html");
+            // Load offline-first local asset
+            webView.loadUrl("file:///android_asset/index.html");
+
+        } catch (Throwable t) {
+            Log.e(TAG, "Fatal WebView initialization error", t);
+        }
     }
 
     private void configureHighRefreshRate() {
@@ -92,10 +107,12 @@ public class MainActivity extends AppCompatActivity {
                     Display.Mode[] modes = display.getSupportedModes();
                     Display.Mode maxMode = null;
                     float maxFps = 60.0f;
-                    for (Display.Mode m : modes) {
-                        if (m.getRefreshRate() > maxFps) {
-                            maxFps = m.getRefreshRate();
-                            maxMode = m;
+                    if (modes != null) {
+                        for (Display.Mode m : modes) {
+                            if (m.getRefreshRate() > maxFps) {
+                                maxFps = m.getRefreshRate();
+                                maxMode = m;
+                            }
                         }
                     }
                     if (maxMode != null) {
@@ -176,7 +193,7 @@ public class MainActivity extends AppCompatActivity {
                 return response.toString();
 
             } catch (Exception e) {
-                e.printStackTrace();
+                Log.w("AndroidBridge", "Request to " + endpoint + " failed: " + e.getMessage());
                 return null;
             } finally {
                 if (conn != null) {
