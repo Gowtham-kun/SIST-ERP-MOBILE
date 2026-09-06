@@ -1,0 +1,72 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build & Package APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Make Gradlew Executable
+        run: chmod +x ./android/gradlew
+
+      - name: Build Debug APK
+        working-directory: ./android
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Locate Generated APK
+        id: find-apk
+        run: |
+          APK_PATH=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          echo "Found APK at: $APK_PATH"
+          cp "$APK_PATH" SIST-ERP-v1.0.0.apk
+          echo "apk_path=SIST-ERP-v1.0.0.apk" >> $GITHUB_OUTPUT
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SIST-ERP-v1.0.0-debug
+          path: SIST-ERP-v1.0.0.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: SIST ERP Mobile v1.0.0
+          body: |
+            ### 📱 SIST ERP Android Mobile App v1.0.0
+            
+            **Downloadable APK**: [`SIST-ERP-v1.0.0.apk`](SIST-ERP-v1.0.0.apk)
+            
+            #### Features:
+            - ⚡ **Instant Offline Launch**: Launches instantly from cache in < 50ms without waiting for internet.
+            - 🔒 **Persistent Authentication**: Never asks to log in again once authenticated.
+            - 🔄 **Silent Background Revalidation**: Silently fetches live attendance, CAE results, and timetable when internet is available.
+            - 🚀 **120Hz Display Optimization**: Ultra-smooth 120fps scrolling and GPU-accelerated obsidian dark UI.
+            - 🌐 **Direct Standalone ERP Engine**: Runs directly on device with zero external server required.
+          files: SIST-ERP-v1.0.0.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

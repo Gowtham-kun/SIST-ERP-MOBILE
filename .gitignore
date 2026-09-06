@@ -4,3 +4,10 @@ node_modules/
 .vercel
 __pycache__/
 *.pyc
+
+# Android build outputs & local config
+.gradle/
+**/build/
+android/.gradle/
+android/app/build/
+android/local.properties
